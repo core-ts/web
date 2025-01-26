@@ -1,3 +1,5 @@
+export * from "./form"
+
 export class resources {
   static limits = [12, 24, 60, 100, 120, 180, 300, 600]
   static page = "page"

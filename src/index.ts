@@ -7,32 +7,40 @@ export class resources {
   static defaultLimit = 12
   static sort = "sort"
 }
-export interface StringMap {
-  [key: string]: string
-}
-export interface Params {
-  params: StringMap
-  searchParams: StringMap
-}
-export function removePage(obj: StringMap): string {
+export type StringMap = Record<string, string | string[] | undefined>
+export function removePage(obj: Record<string, string | string[] | undefined>): string {
   const arr: string[] = []
   const keys = Object.keys(obj)
   for (const k of keys) {
     if (k !== resources.page) {
       const v = obj[k]
-      arr.push(`${k}=${encodeURI(v)}`)
+      if (typeof v === "string") {
+        arr.push(`${k}=${encodeURI(v)}`)
+      } else if (Array.isArray(v)) {
+        const x = v as string[]
+        if (x.length > 0) {
+          arr.push(`${k}=${encodeURI(x[x.length - 1])}`)
+        }
+      }
     }
   }
   return arr.length === 0 ? "" : arr.join("&")
 }
 
-export function removeSort(obj: StringMap): string {
+export function removeSort(obj: Record<string, string | string[] | undefined>): string {
   const arr: string[] = []
   const keys = Object.keys(obj)
   for (const k of keys) {
     if (k !== resources.sort) {
       const v = obj[k]
-      arr.push(`${k}=${encodeURI(v)}`)
+      if (typeof v === "string") {
+        arr.push(`${k}=${encodeURI(v)}`)
+      } else if (Array.isArray(v)) {
+        const x = v as string[]
+        if (x.length > 0) {
+          arr.push(`${k}=${encodeURI(x[x.length - 1])}`)
+        }
+      }
     }
   }
   return arr.length === 0 ? "" : arr.join("&")
@@ -60,22 +68,37 @@ export function getSortString(field: string, sort: Sort): string {
   }
   return field
 }
-export function buildFilter<T>(obj: StringMap, dates?: string[], nums?: string[], arr?: string[]): T {
+export function buildFilter<T>(obj: Record<string, string | string[] | undefined>, dates?: string[], nums?: string[], arr?: string[]): T {
   const filter: any = fromParams<T>(obj, arr)
   filter[resources.page] = getPage(filter[resources.page] as string)
   filter[resources.limit] = getLimit(filter[resources.limit] as string)
   format(filter, dates, nums)
   return filter
 }
-export function fromParams<T>(obj: StringMap, arr?: string[]): T {
+export function fromParams<T>(obj: Record<string, string | string[] | undefined>, arr?: string[]): T {
   const s: any = {}
   const keys = Object.keys(obj)
   for (const key of keys) {
     if (inArray(key, arr)) {
-      const x = (obj[key] as string).split(",")
-      setValue(s, key, x)
+      const v = obj[key]
+      if (typeof v === "string") {
+        const x = v.split(",")
+        setValue(s, key, x)
+      } else if (Array.isArray(v)) {
+        const x: string[] = v as string[]
+        setValue(s, key, x)
+      }
+      
     } else {
-      setValue(s, key, obj[key] as string)
+      const v = obj[key]
+      if (typeof v === "string") {
+        setValue(s, key, v)
+      } else if (Array.isArray(v)) {
+        const x: string[] = v as string[]
+        if (x.length > 0) {
+          setValue(s, key, x[x.length - 1])
+        }
+      }
     }
   }
   return s
@@ -247,9 +270,19 @@ export function buildSort(s?: string): Sort {
     return { field: s.startsWith("+") ? s.substring(1) : s, type: "+" }
   }
 }
-export function buildSortFromParams(params: StringMap): Sort {
-  const s = params[resources.sort] as string
-  return buildSort(s)
+export function buildSortFromParams(params: Record<string, string | string[] | undefined>): Sort {
+  const s = params[resources.sort]
+  if (s !== undefined) {
+    if (typeof s === "string") {
+      return buildSort(s)  
+    } else if (Array.isArray(s)) {
+      const x: string[] = s as string[]
+      if (x.length > 0) {
+        return buildSort(x[x.length - 1])    
+      }
+    }
+  }
+  return buildSort(undefined)
 }
 export function renderSort(field: string, sort: Sort): string {
   if (field === sort.field) {
@@ -257,7 +290,7 @@ export function renderSort(field: string, sort: Sort): string {
   }
   return ""
 }
-export function buildSortSearch(params: StringMap, fields: string[], sortStr?: string): SortMap {
+export function buildSortSearch(params: Record<string, string | string[] | undefined>, fields: string[], sortStr?: string): SortMap {
   const search = removeSort(params)
   const sort = buildSort(sortStr)
   let sorts: SortMap = {}

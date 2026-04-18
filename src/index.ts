@@ -7,12 +7,21 @@ export class resources {
   static defaultLimit = 12
   static sort = "sort"
 }
+export function getRecordValue(v: string | string[] | undefined): string | undefined {
+  if (typeof v === "string") {
+    return v
+  } else if (Array.isArray(v)) {
+    return v.length > 0 ? v[v.length - 1] : undefined
+  }
+  return undefined
+}
 export type StringMap = Record<string, string | string[] | undefined>
-export function removePage(obj: Record<string, string | string[] | undefined>): string {
+export function removePage(obj: Record<string, string | string[] | undefined>, pageKey?: string): string {
   const arr: string[] = []
   const keys = Object.keys(obj)
+  const page = pageKey ? pageKey : resources.page
   for (const k of keys) {
-    if (k !== resources.page) {
+    if (k !== page) {
       const v = obj[k]
       if (typeof v === "string") {
         arr.push(`${k}=${encodeURI(v)}`)
@@ -27,11 +36,12 @@ export function removePage(obj: Record<string, string | string[] | undefined>): 
   return arr.length === 0 ? "" : arr.join("&")
 }
 
-export function removeSort(obj: Record<string, string | string[] | undefined>): string {
+export function removeSort(obj: Record<string, string | string[] | undefined>, sortKey?: string): string {
   const arr: string[] = []
   const keys = Object.keys(obj)
+  const sort = sortKey ? sortKey : resources.sort
   for (const k of keys) {
-    if (k !== resources.sort) {
+    if (k !== sort) {
       const v = obj[k]
       if (typeof v === "string") {
         arr.push(`${k}=${encodeURI(v)}`)
@@ -45,6 +55,27 @@ export function removeSort(obj: Record<string, string | string[] | undefined>): 
   }
   return arr.length === 0 ? "" : arr.join("&")
 }
+export function removeLimit(obj: Record<string, string | string[] | undefined>, limitKey?: string, pageKey?: string): string {
+  const arr: string[] = []
+  const keys = Object.keys(obj)
+  const page = pageKey ? pageKey : resources.page
+  const limit = limitKey ? limitKey : resources.limit
+  for (const k of keys) {
+    if (k !== page && k !== limit) {
+      const v = obj[k]
+      if (typeof v === "string") {
+        arr.push(`${k}=${encodeURI(v)}`)
+      } else if (Array.isArray(v)) {
+        const x = v as string[]
+        if (x.length > 0) {
+          arr.push(`${k}=${encodeURI(x[x.length - 1])}`)
+        }
+      }
+    }
+  }
+  return arr.length === 0 ? "" : arr.join("&")
+}
+
 export type SearchParams = {
   q?: string
   page?: string
@@ -68,10 +99,12 @@ export function getSortString(field: string, sort: Sort): string {
   }
   return field
 }
-export function buildFilter<T>(obj: Record<string, string | string[] | undefined>, dates?: string[], nums?: string[], arr?: string[]): T {
+export function buildFilter<T>(obj: Record<string, string | string[] | undefined>, defaultLimit: number,dates?: string[], nums?: string[], arr?: string[], limitKey?: string, pageKey?: string): T {
   const filter: any = fromParams<T>(obj, arr)
-  filter[resources.page] = getPage(filter[resources.page] as string)
-  filter[resources.limit] = getLimit(filter[resources.limit] as string)
+  const page = pageKey ? pageKey : resources.page
+  const limit = limitKey ? limitKey : resources.limit
+  filter[page] = getPage(filter[page] as string)
+  filter[limit] = getLimit(filter[limit] as string, defaultLimit)
   format(filter, dates, nums)
   return filter
 }
@@ -367,9 +400,9 @@ export function getPage(page?: string): number {
   const num = getNumber(page)
   return num === undefined || num < 1 ? 1 : num
 }
-export function getLimit(limit?: string): number {
+export function getLimit(limit: string | undefined, defaultLimit: number): number {
   const num = getNumber(limit)
-  return num === undefined || num < 1 ? resources.defaultLimit : num
+  return num === undefined || num < 1 ? defaultLimit : num
 }
 export function getNumber(num?: string, defaultNum?: number): number | undefined {
   return !num || num.length === 0 ? defaultNum : isNaN(num as any) ? undefined : parseInt(num, 10)
@@ -663,4 +696,8 @@ function getChildren(m: Category, all: Category[]) {
     children.sort(subMenuItem)
     m.children = children
   }
+}
+
+export function cloneArray<T>(arr: T[]): T[] {
+  return arr.map(item => ({ ...item }));
 }

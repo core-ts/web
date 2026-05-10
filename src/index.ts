@@ -88,7 +88,7 @@ export interface Sort {
 }
 export interface SortType {
   url: string
-  tag: string
+  type?: "+" | "-"
 }
 export interface SortMap {
   [key: string]: SortType
@@ -317,11 +317,11 @@ export function buildSortFromParams(params: Record<string, string | string[] | u
   }
   return buildSort(undefined)
 }
-export function renderSort(field: string, sort: Sort): string {
+export function getSortType(field: string, sort: Sort): "-" | "+" | undefined {
   if (field === sort.field) {
-    return sort.type === "-" ? "<i class='sort-down'></i>" : "<i class='sort-up'></i>"
+    return sort.type === "-" ? "-" : "+"
   }
-  return ""
+  return undefined
 }
 export function buildSortSearch(params: Record<string, string | string[] | undefined>, fields: string[], sortStr?: string): SortMap {
   const search = removeSort(params)
@@ -331,12 +331,11 @@ export function buildSortSearch(params: Record<string, string | string[] | undef
   for (let i = 0; i < fields.length; i++) {
     sorts[fields[i]] = {
       url: prefix + resources.sort + "=" + getSortString(fields[i], sort),
-      tag: renderSort(fields[i], sort),
+      type: getSortType(fields[i], sort),
     }
   }
   return sorts
 }
-
 export function formatInteger(v?: number | null, groupSeparator: string = ","): string {
   if (v == null || !Number.isFinite(v)) {
     return ""
@@ -700,4 +699,15 @@ function getChildren(m: Category, all: Category[]) {
 
 export function cloneArray<T>(arr: T[]): T[] {
   return arr.map(item => ({ ...item }));
+}
+
+export function getOffset(limit: number, page?: number, firstLimit?: number): number {
+  const p = page && page > 0 ? page : 1
+  if (firstLimit && firstLimit > 0) {
+    const offset = limit * (p - 2) + firstLimit
+    return offset < 0 ? 0 : offset
+  } else {
+    const offset = limit * (p - 1)
+    return offset < 0 ? 0 : offset
+  }
 }

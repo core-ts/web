@@ -1,6 +1,6 @@
 {
   "name": "web-one",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Web utilities",
   "main": "./lib/index.js",
   "types": "./src/index.ts",

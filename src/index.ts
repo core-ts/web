@@ -336,6 +336,38 @@ export function buildSortSearch(params: Record<string, string | string[] | undef
   }
   return sorts
 }
+export interface Item {
+  id?: string
+  value: string
+  text?: string
+  fulltext?: string
+}
+export function buildSorts(sorts: Item[], prefix: string) {
+  const l = sorts.length
+  for (let i = 0; i < l; i++) {
+    sorts[i].value = prefix + sorts[i].value
+  }
+}
+export function getSortText(sorts: Item[], sort: string | undefined, defaultText?: string, textOnly?: boolean): string | undefined {
+  if (!sort) {
+    return defaultText
+  }
+  const l = sorts.length
+  if (textOnly) {
+    for (let i = 0; i < l; i++) {
+      if (sorts[i].value === sort) {
+        return sorts[i].text
+      }
+    }
+  } else {
+    for (let i = 0; i < l; i++) {
+      if (sorts[i].value === sort) {
+        return sorts[i].fulltext
+      }
+    }
+  }
+  return defaultText
+}
 export function formatInteger(v?: number | null, groupSeparator: string = ","): string {
   if (v == null || !Number.isFinite(v)) {
     return ""

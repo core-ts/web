@@ -15,7 +15,7 @@ export function getRecordValue(v: string | string[] | undefined): string | undef
   }
   return undefined
 }
-export type StringMap = Record<string, string | string[] | undefined>
+// export type StringMap = Record<string, string | string[] | undefined>
 export function removePage(obj: Record<string, string | string[] | undefined>, pageKey?: string): string {
   const arr: string[] = []
   const keys = Object.keys(obj)
@@ -438,12 +438,12 @@ export function getLimit(limit: string | undefined, defaultLimit: number): numbe
 export function getNumber(num?: string, defaultNum?: number): number | undefined {
   return !num || num.length === 0 ? defaultNum : isNaN(num as any) ? undefined : parseInt(num, 10)
 }
-export function clone(obj: any): any {
+export function clone<T>(obj: T): T {
   if (!obj) {
     return obj
   }
   if (obj instanceof Date) {
-    return new Date(obj.getTime())
+    return new Date(obj.getTime()) as any
   }
   if (typeof obj !== "object") {
     return obj
@@ -454,12 +454,12 @@ export function clone(obj: any): any {
       const c = clone(sub)
       arr.push(c)
     }
-    return arr
+    return arr as any
   }
   const x: any = {}
   const keys = Object.keys(obj)
   for (const k of keys) {
-    const v = obj[k]
+    const v = (obj as any)[k]
     if (v instanceof Date) {
       x[k] = new Date(v.getTime())
     } else {
@@ -650,7 +650,7 @@ export function formatPhone(phone?: string | null): string {
 }
 
 export interface MenuItem {
-  id: string
+  id?: string
   name: string
   path: string
   resource?: string
@@ -680,6 +680,26 @@ export function rebuildPath(items: MenuItem[], lang: string) {
       rebuildPath(children, lang)
     }
   }
+}
+interface StringMap2 {
+  [key: string]: string;
+}
+export function localize(items: MenuItem[], resource: StringMap2): MenuItem[] {
+  for (const item of items) {
+    if (item.resource) {
+      const text = resource[item.resource];
+      if (text) {
+        item.name = text;
+      }
+    }
+
+    const children = item.children;
+    if (children && children.length > 0) {
+      localize(children, resource);
+    }
+  }
+
+  return items;
 }
 
 export function sub(n1?: number, n2?: number): number {
@@ -727,10 +747,6 @@ function getChildren(m: Category, all: Category[]) {
     children.sort(subMenuItem)
     m.children = children
   }
-}
-
-export function cloneArray<T>(arr: T[]): T[] {
-  return arr.map(item => ({ ...item }));
 }
 
 export function getOffset(limit: number, page?: number, firstLimit?: number): number {

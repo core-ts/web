@@ -759,3 +759,42 @@ export function getOffset(limit: number, page?: number, firstLimit?: number): nu
     return offset < 0 ? 0 : offset
   }
 }
+
+export function isValidPath(path: string): boolean {
+  const len = path.length;
+  if (len === 0) {
+    return false;
+  }
+  for (let i = 0; i < len; i++) {
+    const c = path.charCodeAt(i);
+    // a-z
+    if (c >= 97 && c <= 122) continue;
+    // A-Z
+    if (c >= 65 && c <= 90) continue;
+    // 0-9
+    if (c >= 48 && c <= 57) continue;
+    // _, -, /
+    if (c === 95 || c === 45 || c === 47) continue;
+    return false;
+  }
+  return true;
+}
+export function isValidSlug(path: string): boolean {
+  const len = path.length;
+  if (len === 0) {
+    return false;
+  }
+  for (let i = 0; i < len; i++) {
+    const c = path.charCodeAt(i);
+    // a-z
+    if (c >= 97 && c <= 122) continue;
+    // A-Z
+    if (c >= 65 && c <= 90) continue;
+    // 0-9
+    if (c >= 48 && c <= 57) continue;
+    // _, -, /
+    if (c === 95 || c === 45) continue;
+    return false;
+  }
+  return true;
+}

@@ -15,7 +15,6 @@ export function getRecordValue(v: string | string[] | undefined): string | undef
   }
   return undefined
 }
-// export type StringMap = Record<string, string | string[] | undefined>
 export function removePage(obj: Record<string, string | string[] | undefined>, pageKey?: string): string {
   const arr: string[] = []
   const keys = Object.keys(obj)
@@ -681,10 +680,10 @@ export function rebuildPath(items: MenuItem[], lang: string) {
     }
   }
 }
-interface StringMap2 {
+export interface StringMap {
   [key: string]: string;
 }
-export function localize(items: MenuItem[], resource: StringMap2): MenuItem[] {
+export function localize(items: MenuItem[], resource: StringMap): MenuItem[] {
   for (const item of items) {
     if (item.resource) {
       const text = resource[item.resource];
@@ -797,4 +796,58 @@ export function isValidSlug(path: string): boolean {
     return false;
   }
   return true;
+}
+
+export const none = 0
+export const read = 1
+export const write = 2
+export const approve = 4
+export const all = 2147483647
+// tslint:disable-next-line:max-classes-per-file
+export class PrivilegeLoader {
+  constructor(
+    protected sql: string,
+    protected query: <T>(sql: string, args?: any[]) => Promise<T[]>,
+  ) {
+    this.getPrivilege = this.getPrivilege.bind(this)
+  }
+  getPrivilege(userId: string, privilegeId: string): Promise<number> {
+    return this.query<any>(this.sql, [userId, privilegeId]).then((v) => {
+      if (!v || v.length === 0) {
+        return none
+      }
+      const keys = Object.keys(v[0])
+      if (keys.length === 0) {
+        return all
+      }
+      const k: string = keys[0]
+      let permissions = 0
+      let ok = false
+      for (const p of v) {
+        const x = p[k]
+        if (typeof x === "number") {
+          // tslint:disable-next-line:no-bitwise
+          permissions = permissions | x
+          ok = true
+        }
+      }
+      return ok ? permissions : all
+    })
+  }
+}
+export function getPath(s: string, i?: number): string {
+  if (!i || i <= 0) {
+    return s
+  }
+  let count = 0
+
+  while (count < i) {
+    const k = s.lastIndexOf("/")
+    if (k < 0) {
+      return s
+    }
+    s = s.substring(0, k)
+    count = count + 1
+  }
+  return s
 }

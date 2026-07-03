@@ -21,14 +21,9 @@ export function removePage(obj: Record<string, string | string[] | undefined>, p
   const page = pageKey ? pageKey : resources.page
   for (const k of keys) {
     if (k !== page) {
-      const v = obj[k]
-      if (typeof v === "string") {
+      const v = getRecordValue(obj[k])
+      if (v) {
         arr.push(`${k}=${encodeURI(v)}`)
-      } else if (Array.isArray(v)) {
-        const x = v as string[]
-        if (x.length > 0) {
-          arr.push(`${k}=${encodeURI(x[x.length - 1])}`)
-        }
       }
     }
   }
@@ -41,14 +36,9 @@ export function removeSort(obj: Record<string, string | string[] | undefined>, s
   const sort = sortKey ? sortKey : resources.sort
   for (const k of keys) {
     if (k !== sort) {
-      const v = obj[k]
-      if (typeof v === "string") {
+      const v = getRecordValue(obj[k])
+      if (v) {
         arr.push(`${k}=${encodeURI(v)}`)
-      } else if (Array.isArray(v)) {
-        const x = v as string[]
-        if (x.length > 0) {
-          arr.push(`${k}=${encodeURI(x[x.length - 1])}`)
-        }
       }
     }
   }
@@ -61,14 +51,9 @@ export function removeLimit(obj: Record<string, string | string[] | undefined>, 
   const limit = limitKey ? limitKey : resources.limit
   for (const k of keys) {
     if (k !== page && k !== limit) {
-      const v = obj[k]
-      if (typeof v === "string") {
+      const v = getRecordValue(obj[k])
+      if (v) {
         arr.push(`${k}=${encodeURI(v)}`)
-      } else if (Array.isArray(v)) {
-        const x = v as string[]
-        if (x.length > 0) {
-          arr.push(`${k}=${encodeURI(x[x.length - 1])}`)
-        }
       }
     }
   }
@@ -367,7 +352,7 @@ export function getSortText(sorts: Item[], sort: string | undefined, defaultText
   }
   return defaultText
 }
-export function formatInteger(v?: number | null, groupSeparator: string = ","): string {
+export function formatInteger(v: number | null | undefined, groupSeparator: string = ","): string {
   if (v == null || !Number.isFinite(v)) {
     return ""
   }
@@ -375,55 +360,106 @@ export function formatInteger(v?: number | null, groupSeparator: string = ","): 
   const isNegative = v < 0
   let n = Math.abs(Math.trunc(v))
 
-  // Fast path for small numbers (no separator needed)
+  // Fast path
   if (n < 1000) {
     return isNegative ? `-${n}` : `${n}`
   }
 
-  let result = ""
-  let count = 0
+  // Max length:
+  // digits (up to 16 for JS safe int) + separators (~5) + sign
+  const buffer = new Array(32)
+  let i = buffer.length
+
+  let digitCount = 0
 
   while (n > 0) {
-    const digit = n % 10
-    n = (n / 10) | 0 // faster floor for positive integers
-
-    if (count > 0 && count % 3 === 0) {
-      result = groupSeparator + result
+    // Insert separator every 3 digits
+    if (digitCount > 0 && digitCount % 3 === 0) {
+      buffer[--i] = groupSeparator
     }
 
-    result = digit + result
-    count++
+    const digit = n % 10
+    buffer[--i] = String.fromCharCode(48 + digit)
+
+    n = Math.floor(n / 10) // safe version
+    digitCount++
   }
 
-  return isNegative ? `-${result}` : result
+  if (isNegative) {
+    buffer[--i] = "-"
+  }
+
+  // Slice only used portion and join once
+  return buffer.slice(i).join("")
 }
-export function formatNumber(v?: number | null, scale?: number, d?: string | null, g?: string): string {
-  if (v == null) {
+export function formatNumber(v?: number | null, precision = 0, decimalSeparator?: string | null, groupSeparator?: string | null): string {
+  if (v == null || !Number.isFinite(v)) {
     return ""
   }
-  if (!d && !g) {
-    g = ","
-    d = "."
-  } else if (!g) {
-    g = d === "," ? "." : ","
-  }
-  const s = scale === 0 || scale ? v.toFixed(scale) : v.toString()
-  const x = s.split(".", 2)
-  const y = x[0]
-  const arr: string[] = []
-  const len = y.length - 1
-  for (let k = 0; k < len; k++) {
-    arr.push(y[len - k])
-    if ((k + 1) % 3 === 0) {
-      arr.push(g)
+  let d = "."
+  let g = ","
+  if (decimalSeparator && groupSeparator) {
+    d = decimalSeparator
+    g = groupSeparator
+  } else if (decimalSeparator && !groupSeparator) {
+    d = decimalSeparator
+    if (d === "٫") {
+      g = "٬"
+    } else {
+      g = d === "," ? "." : ","
     }
   }
-  arr.push(y[0])
-  if (x.length === 1) {
-    return arr.reverse().join("")
-  } else {
-    return arr.reverse().join("") + d + x[1]
+  const negative = v < 0
+
+  // unavoidable allocation
+  const s = precision < 0 ? Math.abs(v).toString() : Math.abs(v).toFixed(precision)
+
+  const dot = s.indexOf(".")
+
+  const intEnd = dot >= 0 ? dot : s.length
+  const fracLen = dot >= 0 ? s.length - dot - 1 : 0
+
+  const intLen = intEnd
+  const groups = intLen > 3 ? ((intLen - 1) / 3) | 0 : 0
+
+  const outLen = (negative ? 1 : 0) + intLen + groups * g.length + (fracLen > 0 ? d.length + fracLen : 0)
+
+  const out = new Array<string>(outLen)
+
+  let p = 0
+
+  if (negative) {
+    out[p++] = "-"
   }
+
+  // integer part
+  let firstGroup = intLen % 3
+  if (firstGroup === 0) {
+    firstGroup = 3
+  }
+
+  for (let i = 0; i < intLen; i++) {
+    if (i > 0 && (i === firstGroup || (i > firstGroup && (i - firstGroup) % 3 === 0))) {
+      for (let j = 0; j < g.length; j++) {
+        out[p++] = g[j]
+      }
+    }
+
+    out[p++] = s[i]
+  }
+
+  // fractional part
+  if (fracLen > 0) {
+    for (let j = 0; j < d.length; j++) {
+      out[p++] = d[j]
+    }
+
+    for (let i = dot + 1; i < s.length; i++) {
+      out[p++] = s[i]
+    }
+  }
+
+  return out.join("")
 }
 
 export function getPage(page?: string): number {
@@ -606,17 +642,25 @@ function pad3(n: number): string {
   }
   return n < 10 ? "00" + n : "0" + n.toString()
 }
-// tslint:disable-next-line:class-name
-export class formatter {
-  static phone = / |\-|\.|\(|\)/g
-  static usPhone = /(\d{3})(\d{3})(\d{4})/
-  static removePhoneFormat(phone: string): string {
-    if (phone) {
-      return phone.replace(formatter.phone, "")
-    } else {
-      return phone
+
+export function normalizePhone(s?: string | null): string {
+  if (!s) {
+    return ""
+  }
+  const len = s.length
+  const buf = new Array<string>(len)
+  let j = 0
+  for (let i = 0; i < len; i++) {
+    const c = s.charCodeAt(i)
+    if ((c >= 48 && c <= 57) || c === 43) {
+      buf[j++] = s[i]
     }
   }
+  return j === len ? buf.join("") : buf.slice(0, j).join("")
+}
+// tslint:disable-next-line:class-name
+export class formatter {
+  static usPhone = /(\d{3})(\d{3})(\d{4})/
   static formatPhone(phone?: string | null): string {
     if (!phone) {
       return ""
@@ -624,7 +668,7 @@ export class formatter {
     // reformat phone number
     // 555 123-4567 or (+1) 555 123-4567
     let s = phone
-    const x = formatter.removePhoneFormat(phone)
+    const x = normalizePhone(phone)
     if (x.length === 10) {
       const USNumber = x.match(formatter.usPhone)
       if (USNumber != null) {

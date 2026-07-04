@@ -895,3 +895,14 @@ export function getPath(s: string, i?: number): string {
   }
   return s
 }
+
+export interface ErrorMessage {
+  field: string
+  code: string
+  message?: string
+  param?: string | number | Date
+  invalid?: string
+}
+export function isSuccessful<T>(res: number | T | ErrorMessage[]): boolean {
+  return (typeof res === "number" && res <= 0) || Array.isArray(res) ? false : true
+}

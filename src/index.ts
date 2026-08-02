@@ -1,5 +1,3 @@
-export * from "./form"
-
 export class resources {
   static limits = [12, 24, 60, 100, 120, 180, 300, 600]
   static page = "page"
@@ -7,6 +5,125 @@ export class resources {
   static defaultLimit = 12
   static sort = "sort"
 }
+
+export type DataType = "ObjectId" | "date" | "datetime" | "time" | "boolean" | "number" | "integer" | "string" | "text" | "object" | "array" | "binary" | "primitives" | "booleans" | "numbers" | "integers" | "strings" | "dates" | "datetimes" | "times"
+
+export function normalizeInteger(s?: string | null): string {
+  if (!s) {
+    return ""
+  }
+  const len = s.length
+  const buf = new Array<string>(len)
+  let j = 0
+  for (let i = 0; i < len; i++) {
+    const c = s.charCodeAt(i)
+    if (c >= 48 && c <= 57) {
+      buf[j++] = s[i]
+    }
+  }
+  return j === len ? buf.join("") : buf.slice(0, j).join("")
+}
+
+// Keep a single dot
+export function removeSeparators(s?: string | null): string {
+  if (!s) {
+    return ""
+  }
+  const len = s.length
+  const buffer = new Uint16Array(len) // preallocate max possible
+  let write = 0
+
+  for (let i = 0; i < len; i++) {
+    const c = s.charCodeAt(i)
+    // '0'–'9' (48–57), '.' (46)
+    if ((c >= 48 && c <= 57) || c === 46) {
+      buffer[write++] = c
+    }
+  }
+  // Convert only the used portion to string
+  return String.fromCharCode.apply(null, buffer.subarray(0, write) as any)
+}
+// Keep digits 0–9 ; Replace , and ٫ (Arabic decimal separator) → . ; Remove everything else => < 100 char: Array<string> version can actually be just as fast or faster due to lower overhead
+export function normalizeNumber(s?: string | null): string {
+  if (!s) {
+    return ""
+  }
+  const len = s.length
+  const buf = new Array<string>(len)
+  let j = 0
+  for (let i = 0; i < len; i++) {
+    const c = s.charCodeAt(i)
+
+    if (c >= 48 && c <= 57) {
+      buf[j++] = s[i]
+    } else if (c === 44 || c === 1643) {
+      buf[j++] = "."
+    }
+  }
+  return j === len ? buf.join("") : buf.slice(0, j).join("")
+}
+
+export interface Attribute {
+  type?: DataType
+}
+export interface Attributes {
+  [key: string]: Attribute
+}
+export function fromFormData<T>(formData: FormData, attrs?: Attributes, decimalSeparator?: string, includeUndefine?: boolean, includeErrorForNumbers?: boolean): T {
+  if (!attrs) {
+    return fromFormDataWithAttributes(formData, {}, decimalSeparator, includeUndefine, includeErrorForNumbers)
+  }
+  return fromFormDataWithAttributes(formData, attrs, decimalSeparator, includeUndefine, includeErrorForNumbers)
+}
+export function fromFormDataWithAttributes<T>(formData: FormData, attrs: Attributes, decimalSeparator?: string, includeUndefine?: boolean, includeErrorForNumbers?: boolean): T {
+  const obj = {} as any
+  const keys = formData.keys()
+  for (const key of keys) {
+    const attr: Attribute = attrs[key]
+    const v = formData.get(key)
+    if (attr) {
+      obj[key] = v
+      if (v && typeof v === "string") {
+        if (attr.type === "integer") {
+          const n = normalizeInteger(v)
+          if (!isNaN(n as any)) {
+            obj[key] = parseFloat(n)
+          }
+        } else if (attr.type === "number") {
+          const n = decimalSeparator === "," || decimalSeparator === "٫" ? normalizeNumber(v) : removeSeparators(v)
+          if (!isNaN(n as any)) {
+            obj[key] = parseFloat(n)
+          }
+        } else if (attr.type === "datetime" || attr.type === "date") {
+          const d = new Date(v)
+          if (d.toString() !== "Invalid Date") {
+            obj[key] = d
+          }
+        } else if (attr.type === "boolean") {
+          obj[key] = v === "true"
+        } else if (attr.type === "strings") {
+          obj[key] = v.split(",")
+        } else if (attr.type === "integers" || attr.type === "numbers") {
+          const s = v.split(",")
+          const nums = []
+          for (let i = 0; i < s.length; i++) {
+            if (!isNaN(s[i] as any)) {
+              const num = parseFloat(s[i])
+              nums.push(num)
+            } else if (includeErrorForNumbers) {
+              nums.push(s[i])
+            }
+          }
+          obj[key] = nums
+        }
+      }
+    } else if (includeUndefine) {
+      obj[key] = v
+    }
+  }
+  return obj
+}
+
 export function getRecordValue(v: string | string[] | undefined): string | undefined {
   if (typeof v === "string") {
     return v
@@ -83,7 +200,7 @@ export function getSortString(field: string, sort: Sort): string {
   }
   return field
 }
-export function buildFilter<T>(obj: Record<string, string | string[] | undefined>, defaultLimit: number,dates?: string[], nums?: string[], arr?: string[], limitKey?: string, pageKey?: string): T {
+export function buildFilter<T>(obj: Record<string, string | string[] | undefined>, defaultLimit: number, dates?: string[], nums?: string[], arr?: string[], limitKey?: string, pageKey?: string): T {
   const filter: any = fromParams<T>(obj, arr)
   const page = pageKey ? pageKey : resources.page
   const limit = limitKey ? limitKey : resources.limit
@@ -105,7 +222,6 @@ export function fromParams<T>(obj: Record<string, string | string[] | undefined>
         const x: string[] = v as string[]
         setValue(s, key, x)
       }
-      
     } else {
       const v = obj[key]
       if (typeof v === "string") {
@@ -291,11 +407,11 @@ export function buildSortFromParams(params: Record<string, string | string[] | u
   const s = params[resources.sort]
   if (s !== undefined) {
     if (typeof s === "string") {
-      return buildSort(s)  
+      return buildSort(s)
     } else if (Array.isArray(s)) {
       const x: string[] = s as string[]
       if (x.length > 0) {
-        return buildSort(x[x.length - 1])    
+        return buildSort(x[x.length - 1])
       }
     }
   }
@@ -575,9 +691,7 @@ export function formatDate(d: Date | null | undefined, format?: string): string 
   return out
 }
 function shortYear(y: number): string {
-  return (y % 100 + 100) % 100 < 10
-    ? "0" + ((y % 100 + 100) % 100)
-    : "" + ((y % 100 + 100) % 100)
+  return ((y % 100) + 100) % 100 < 10 ? "0" + (((y % 100) + 100) % 100) : "" + (((y % 100) + 100) % 100)
 }
 function count(s: string, i: number, ch: number): number {
   let n = 0
@@ -725,24 +839,24 @@ export function rebuildPath(items: MenuItem[], lang: string) {
   }
 }
 export interface StringMap {
-  [key: string]: string;
+  [key: string]: string
 }
 export function localize(items: MenuItem[], resource: StringMap): MenuItem[] {
   for (const item of items) {
     if (item.resource) {
-      const text = resource[item.resource];
+      const text = resource[item.resource]
       if (text) {
-        item.name = text;
+        item.name = text
       }
     }
 
-    const children = item.children;
+    const children = item.children
     if (children && children.length > 0) {
-      localize(children, resource);
+      localize(children, resource)
     }
   }
 
-  return items;
+  return items
 }
 
 export function sub(n1?: number, n2?: number): number {
@@ -804,42 +918,42 @@ export function getOffset(limit: number, page?: number, firstLimit?: number): nu
 }
 
 export function isValidPath(path: string): boolean {
-  const len = path.length;
+  const len = path.length
   if (len === 0) {
-    return false;
+    return false
   }
   for (let i = 0; i < len; i++) {
-    const c = path.charCodeAt(i);
+    const c = path.charCodeAt(i)
     // a-z
-    if (c >= 97 && c <= 122) continue;
+    if (c >= 97 && c <= 122) continue
     // A-Z
-    if (c >= 65 && c <= 90) continue;
+    if (c >= 65 && c <= 90) continue
     // 0-9
-    if (c >= 48 && c <= 57) continue;
+    if (c >= 48 && c <= 57) continue
     // _, -, /
-    if (c === 95 || c === 45 || c === 47) continue;
-    return false;
+    if (c === 95 || c === 45 || c === 47) continue
+    return false
   }
-  return true;
+  return true
 }
 export function isValidSlug(path: string): boolean {
-  const len = path.length;
+  const len = path.length
   if (len === 0) {
-    return false;
+    return false
   }
   for (let i = 0; i < len; i++) {
-    const c = path.charCodeAt(i);
+    const c = path.charCodeAt(i)
     // a-z
-    if (c >= 97 && c <= 122) continue;
+    if (c >= 97 && c <= 122) continue
     // A-Z
-    if (c >= 65 && c <= 90) continue;
+    if (c >= 65 && c <= 90) continue
     // 0-9
-    if (c >= 48 && c <= 57) continue;
+    if (c >= 48 && c <= 57) continue
     // _, -, /
-    if (c === 95 || c === 45) continue;
-    return false;
+    if (c === 95 || c === 45) continue
+    return false
   }
-  return true;
+  return true
 }
 
 export const none = 0
@@ -905,4 +1019,53 @@ export interface ErrorMessage {
 }
 export function isSuccessful<T>(res: number | T | ErrorMessage[]): boolean {
   return (typeof res === "number" && res <= 0) || Array.isArray(res) ? false : true
+}
+
+export type HealthStatus = "UP" | "DOWN"
+export interface HealthMap {
+  [key: string]: Health
+}
+export interface Health {
+  status: HealthStatus
+  data?: AnyMap
+  details?: HealthMap
+}
+export interface AnyMap {
+  [key: string]: any
+}
+export interface HealthChecker {
+  name(): string
+  build(data: AnyMap, error: any): AnyMap
+  check(): Promise<AnyMap>
+}
+
+export async function check(checkers: HealthChecker[]): Promise<Health> {
+  const health: Health = {
+    status: "UP",
+    details: {},
+  }
+
+  await Promise.all(
+    checkers.map(async (checker) => {
+      const sub: Health = {
+        status: "UP",
+      }
+
+      try {
+        const data = await checker.check()
+
+        if (data && Object.keys(data).length > 0) {
+          sub.data = data
+        }
+      } catch (err) {
+        sub.status = "DOWN"
+        health.status = "DOWN"
+        sub.data = checker.build({}, err)
+      }
+
+      health.details![checker.name()] = sub
+    }),
+  )
+
+  return health
 }

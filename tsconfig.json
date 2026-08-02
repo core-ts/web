@@ -2,10 +2,10 @@
   "compileOnSave": true,
   "compilerOptions": {
     "target": "es6",
-    "baseUrl": "./src",
+    "rootDir": "./src",
     "outDir": "./lib",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "node16",
+    "moduleResolution": "node16",
     "strict": true,
     "pretty": true,
     "sourceMap": false,

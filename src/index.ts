@@ -1025,7 +1025,7 @@ export function isSuccessful<T>(res: number | T | ErrorMessage[]): boolean {
   return (typeof res === "number" && res <= 0) || Array.isArray(res) ? false : true
 }
 
-export function create<T>(status?: unknown, statusName?: string, v2?: unknown, name2?: string): T | null {
+export function create<T>(status?: unknown, statusName?: string, v2?: unknown, name2?: string): T {
   const obj = {} as any
   if (status != undefined) {
     const name = (statusName ? statusName : "status")

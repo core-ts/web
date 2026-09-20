@@ -6,6 +6,10 @@ export class resources {
   static sort = "sort"
 }
 
+export class Status {
+  static New = "new"
+}
+
 export type DataType = "ObjectId" | "date" | "datetime" | "time" | "boolean" | "number" | "integer" | "string" | "text" | "object" | "array" | "binary" | "primitives" | "booleans" | "numbers" | "integers" | "strings" | "dates" | "datetimes" | "times"
 
 export function normalizeInteger(s?: string | null): string {
@@ -1021,7 +1025,7 @@ export function isSuccessful<T>(res: number | T | ErrorMessage[]): boolean {
   return (typeof res === "number" && res <= 0) || Array.isArray(res) ? false : true
 }
 
-export function create<T>(status?: unknown, statusName?: string, v2?: unknown, name2?: string) {
+export function create<T>(status?: unknown, statusName?: string, v2?: unknown, name2?: string): T | null {
   const obj = {} as any
   if (status != undefined) {
     const name = (statusName ? statusName : "status")

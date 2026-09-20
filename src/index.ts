@@ -1021,6 +1021,18 @@ export function isSuccessful<T>(res: number | T | ErrorMessage[]): boolean {
   return (typeof res === "number" && res <= 0) || Array.isArray(res) ? false : true
 }
 
+export function create<T>(status?: unknown, statusName?: string, v2?: unknown, name2?: string) {
+  const obj = {} as any
+  if (status != undefined) {
+    const name = (statusName ? statusName : "status")
+    obj[name] = status
+    if (name2 && v2 != undefined) {
+      obj[name2] = v2
+    }
+  }
+  return obj as T
+}
+
 export type HealthStatus = "UP" | "DOWN"
 export interface HealthMap {
   [key: string]: Health

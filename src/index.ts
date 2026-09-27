@@ -136,12 +136,11 @@ export function getRecordValue(v: string | string[] | undefined): string | undef
   }
   return undefined
 }
-export function removePage(obj: Record<string, string | string[] | undefined>, pageKey?: string): string {
+export function removeField(obj: Record<string, string | string[] | undefined>, field?: string): string {
   const arr: string[] = []
   const keys = Object.keys(obj)
-  const page = pageKey ? pageKey : resources.page
   for (const k of keys) {
-    if (k !== page) {
+    if (k !== field) {
       const v = getRecordValue(obj[k])
       if (v) {
         arr.push(`${k}=${encodeURI(v)}`)
@@ -150,20 +149,13 @@ export function removePage(obj: Record<string, string | string[] | undefined>, p
   }
   return arr.length === 0 ? "" : arr.join("&")
 }
-
+export function removePage(obj: Record<string, string | string[] | undefined>, pageKey?: string): string {
+  const page = pageKey ? pageKey : resources.page
+  return removeField(obj, page)
+}
 export function removeSort(obj: Record<string, string | string[] | undefined>, sortKey?: string): string {
-  const arr: string[] = []
-  const keys = Object.keys(obj)
   const sort = sortKey ? sortKey : resources.sort
-  for (const k of keys) {
-    if (k !== sort) {
-      const v = getRecordValue(obj[k])
-      if (v) {
-        arr.push(`${k}=${encodeURI(v)}`)
-      }
-    }
-  }
-  return arr.length === 0 ? "" : arr.join("&")
+  return removeField(obj, sort)
 }
 export function removeLimit(obj: Record<string, string | string[] | undefined>, limitKey?: string, pageKey?: string): string {
   const arr: string[] = []
